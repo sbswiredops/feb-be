@@ -163,7 +163,7 @@ export class AdminController {
 
   @Get('coupons')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'List all coupons',
     description: 'Get all coupons with their status and assignment details',
@@ -199,7 +199,7 @@ export class AdminController {
 
   @Post('add-coupon')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Add new coupon',
     description: 'Create a new coupon with specified UUID and code',
@@ -254,7 +254,7 @@ export class AdminController {
 
   @Post('reset-coupon')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Reset coupon',
     description: 'Reset a coupon back to unused status',

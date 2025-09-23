@@ -112,7 +112,7 @@ export class PerplexityService {
 
         try {
             // TODO: Replace with actual URL logic as needed
-            const targetUrl = process.env.REDEMPTION_URL || 'https://example.com/redeem';
+            const targetUrl = process.env.REDEMPTION_URL || 'https://www.perplexity.ai/join/p/priority';
             this.logger.log(`Navigating to: ${targetUrl}`);
             await page.goto(targetUrl, {
                 waitUntil: 'domcontentloaded',
