@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsUUID, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsUUID, IsString } from 'class-validator';
 
 export class RedeemDto {
   @ApiProperty({
@@ -17,14 +17,6 @@ export class RedeemDto {
   @IsUUID()
   uuid: string;
 
-  @ApiProperty({
-    description: 'Target redemption page URL (optional)',
-    example: 'https://o2perplexity.online/redeem',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  targetUrl?: string;
 }
 
 export class VerifyDto {

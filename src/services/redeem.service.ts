@@ -31,7 +31,7 @@ export class RedeemService {
   /**
    * Start redemption: reserve coupon + puppeteer flow
    */
-  async startRedeem(email: string, couponId: string, targetUrl: string) {
+  async startRedeem(email: string, couponId: string) {
     const coupon = await this.couponRepo.findOne({ where: { id: couponId } });
     if (!coupon) {
       throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
@@ -47,11 +47,10 @@ export class RedeemService {
     coupon.reserved_expires_at = new Date(Date.now() + 2 * 60 * 1000); // 2 min
     await this.couponRepo.save(coupon);
 
-    // spin puppeteer session
+    // spin puppeteer session (targetUrl removed)
     const result = await this.perplexityService.startRedemptionFlow(
       email,
-      coupon.code,
-      targetUrl
+      coupon.code
     );
 
     if (result.immediateSuccess) {

@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,13 +8,14 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CouponController } from './controllers/coupon.controller';
 import { AdminController } from './controllers/admin.controller';
-import { PerplexityService } from './services/perplexity.service';
 import { LoggingService } from './services/logging.service';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { User } from './entities/user.entity';
 import { Coupon } from './entities/coupon.entity';
 import { Log } from './entities/log.entity';
 import { getDatabaseConfig } from './config/database.config';
+import { PerplexityService } from './services/perplexity.service';
+import { RedeemService } from './services/redeem.service';
 
 @Module({
   imports: [
@@ -36,6 +38,6 @@ import { getDatabaseConfig } from './config/database.config';
     }),
   ],
   controllers: [AppController, CouponController, AdminController],
-  providers: [AppService, PerplexityService, LoggingService, JwtStrategy],
+  providers: [AppService, PerplexityService, LoggingService, JwtStrategy, RedeemService],
 })
-export class AppModule {}
+export class AppModule { }

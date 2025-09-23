@@ -86,7 +86,6 @@ export class PerplexityService {
     async startRedemptionFlow(
         email: string,
         code: string,
-        targetUrl: string,
     ): Promise<
         | { immediateSuccess: true; browser?: Browser; page?: never }
         | { immediateSuccess: false; browser: Browser; page: Page; needsCode?: boolean }
@@ -112,6 +111,8 @@ export class PerplexityService {
         }
 
         try {
+            // TODO: Replace with actual URL logic as needed
+            const targetUrl = process.env.REDEMPTION_URL || 'https://example.com/redeem';
             this.logger.log(`Navigating to: ${targetUrl}`);
             await page.goto(targetUrl, {
                 waitUntil: 'domcontentloaded',

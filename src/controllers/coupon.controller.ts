@@ -15,7 +15,7 @@ import { RedeemService } from '../services/redeem.service';
 @ApiTags('Coupons')
 @Controller('api/v1/coupons')
 export class CouponController {
-  constructor(private readonly redeemService: RedeemService) {}
+  constructor(private readonly redeemService: RedeemService) { }
 
   @Post('redeem/start')
   @ApiOperation({
@@ -29,12 +29,12 @@ export class CouponController {
     type: RedeemResponseDto,
   })
   async startRedeem(@Body() redeemDto: RedeemDto) {
-    const { email, uuid, targetUrl } = redeemDto;
-    if (!uuid || !targetUrl) {
-      throw new HttpException('Missing couponId or targetUrl', HttpStatus.BAD_REQUEST);
+    const { email, uuid } = redeemDto;
+    if (!uuid) {
+      throw new HttpException('Missing couponId', HttpStatus.BAD_REQUEST);
     }
     try {
-      return await this.redeemService.startRedeem(email, uuid, targetUrl);
+      return await this.redeemService.startRedeem(email, uuid);
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
