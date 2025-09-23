@@ -52,6 +52,23 @@ export class ResetCouponDto {
   uuid: string;
 }
 
+export class CreateAdminDto {
+  @ApiProperty({
+    description: 'Admin email address',
+    example: 'admin@gmail.com',
+  })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({
+    description: 'Admin password',
+    example: 'securepassword123',
+  })
+  @IsString()
+  @MinLength(6)
+  password: string;
+}
+
 export class CouponResponseDto {
   @ApiProperty({ description: 'Coupon UUID' })
   uuid: string;

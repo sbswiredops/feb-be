@@ -28,10 +28,15 @@ import {
   AddCouponDto,
   ResetCouponDto,
   CouponResponseDto,
+  CreateAdminDto,
 } from '../dto/admin.dto';
+import { ApiBody } from '@nestjs/swagger';
 import { LoggingService } from '../services/logging.service';
 
+import { randomUUID } from 'crypto';
+
 @ApiTags('Admin')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -42,6 +47,75 @@ export class AdminController {
     private jwtService: JwtService,
     private loggingService: LoggingService,
   ) { }
+
+  @Post('create-admin')
+  @ApiOperation({
+    summary: 'Create new admin',
+    description: 'Create a new admin user (only accessible by admins)',
+  })
+  @ApiBody({ type: CreateAdminDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Admin created successfully',
+    schema: {
+      example: {
+        id: 'uuid',
+        email: 'admin@gmail.com',
+        role: 'admin',
+        created_at: '2025-09-23T00:00:00.000Z',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - Invalid or missing JWT token',
+  })
+  async createAdmin(@Body() body: CreateAdminDto) {
+    if (!body || typeof body !== 'object') {
+      throw new HttpException(
+        { message: 'Request body is required and must be an object' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const { email, password } = body;
+    if (!email || !password) {
+      throw new HttpException(
+        { message: 'Both email and password are required' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if user already exists
+    const existing = await this.userRepository.findOne({ where: { email } });
+    if (existing) {
+      throw new HttpException(
+        { message: 'User with this email already exists' },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const user = this.userRepository.create({
+      id: randomUUID(),
+      email,
+      password_hash,
+      role: 'admin',
+      created_at: new Date(),
+    });
+    const saved = await this.userRepository.save(user);
+
+    await this.loggingService.logAction('admin_create_admin', {
+      created_email: email,
+      created_id: saved.id,
+      timestamp: new Date(),
+    });
+
+    return {
+      id: saved.id,
+      email: saved.email,
+      role: saved.role,
+      created_at: saved.created_at,
+    };
+  }
 
   @Post('login')
   @ApiOperation({
