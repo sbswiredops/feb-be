@@ -1,98 +1,270 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Coupon Redemption Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS backend application for coupon redemption with Perplexity-based authentication, PostgreSQL integration, and comprehensive Swagger documentation.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
 
-## Description
+- **Coupon Redemption System**: Users redeem coupons via unique UUID links
+- **Perplexity Integration**: Automatic login email/code sending via Perplexity API
+- **US Proxy Support**: All Perplexity API calls routed through US proxy
+- **Admin Panel**: Complete admin interface for coupon management
+- **Comprehensive Logging**: All actions logged with detailed information
+- **Swagger Documentation**: Full API documentation at `/docs`
+- **PostgreSQL Integration**: Robust database schema with proper constraints
+- **JWT Authentication**: Secure admin authentication
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Environment Variables
 
-## Project setup
+Create a `.env` file in the root directory with the following variables:
 
 ```bash
-$ npm install
+DATABASE_URL=postgresql://username:password@localhost:5432/coupon_db
+PORT=3000
+PERPLEXITY_API_KEY=your_perplexity_api_key_here
+PERPLEXITY_API_BASE=https://api.perplexity.ai
+HTTP_PROXY=http://your-us-proxy:port
+NODE_ENV=development
+JWT_SECRET=your_jwt_secret_here
 ```
 
-## Compile and run the project
+## Database Setup
+
+1. Create a PostgreSQL database
+2. Run the initialization script:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+psql -d your_database_url -f database/init.sql
 ```
 
-## Run tests
+Or use the provided SQL script to set up tables and sample data.
+
+## Installation
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Running the Application
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Development mode
+npm run start:dev
+
+# Production mode
+npm run build
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## API Documentation
 
-## Resources
+Once the application is running, visit:
+- **Swagger UI**: `http://localhost:3000/docs`
+- **API Base**: `http://localhost:3000`
 
-Check out a few resources that may come in handy when working with NestJS:
+## API Endpoints
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Public Endpoints
+
+#### POST /redeem
+Redeem a coupon and trigger Perplexity login email.
+
+```bash
+curl -X POST http://localhost:3000/redeem \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "uuid": "750b8a33-9d1b-4726-a812-2cfc8dafbd67"
+  }'
+```
+
+### Admin Endpoints (Require JWT Authentication)
+
+#### POST /admin/login
+Authenticate admin user.
+
+```bash
+curl -X POST http://localhost:3000/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@example.com",
+    "password": "admin123"
+  }'
+```
+
+#### GET /admin/coupons
+List all coupons (requires JWT token).
+
+#### POST /admin/add-coupon
+Add a new coupon.
+
+#### POST /admin/reset-coupon
+Reset a coupon to unused status.
+
+## Database Schema
+
+### Users Table
+- `id`: UUID primary key
+- `email`: Unique admin email
+- `password_hash`: Bcrypt hashed password
+- `role`: Always 'admin'
+- `created_at`: Timestamp
+
+### Coupons Table
+- `uuid`: UUID primary key
+- `code`: Unique coupon code
+- `status`: 'unused', 'used', or 'unvalid'
+- `assigned_email`: Email when redeemed
+- `assigned_at`: Assignment timestamp
+- `used_at`: Usage timestamp
+- `created_at`: Creation timestamp
+
+### Logs Table
+- `id`: UUID primary key
+- `action`: Action type
+- `details`: JSON details
+- `created_at`: Timestamp
+
+## Proxy Configuration
+
+All Perplexity API calls are automatically routed through the configured US proxy:
+
+1. Set `HTTP_PROXY` environment variable
+2. The application uses `https-proxy-agent` for proxy support
+3. All requests to Perplexity API will use the proxy regardless of user location
+
+## Admin User Creation
+
+Create an admin user using the script:
+
+```bash
+npm run create-admin admin@example.com securepassword123
+```
+
+## Logging
+
+All actions are logged to the database:
+- Coupon redemption attempts
+- Admin login attempts
+- Coupon management actions
+- API call results
+
+## Security Features
+
+- JWT-based admin authentication
+- Password hashing with bcrypt
+- Input validation with class-validator
+- SQL injection protection via TypeORM
+- CORS configuration
+- Environment variable protection
+
+## Error Handling
+
+The API provides detailed error responses:
+- Invalid coupon UUID
+- Already redeemed coupons
+- Expired/invalid coupons
+- Perplexity API failures
+- Authentication errors
+
+## Development
+
+```bash
+# Watch mode
+npm run start:dev
+
+# Debug mode
+npm run start:debug
+
+# Linting
+npm run lint
+
+# Formatting
+npm run format
+```
+
+## Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+## Production Deployment
+
+1. Set `NODE_ENV=production`
+2. Configure production database
+3. Set secure JWT secret
+4. Configure production proxy
+5. Build and run:
+
+```bash
+npm run build
+npm run start:prod
+```
+
+## Monitoring
+
+- Check application logs for errors
+- Monitor database performance
+- Track Perplexity API success rates
+- Review coupon redemption patterns
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Database Connection**: Verify DATABASE_URL format
+2. **Proxy Issues**: Test HTTP_PROXY connectivity
+3. **Perplexity API**: Verify API key and base URL
+4. **JWT Issues**: Check JWT_SECRET configuration
+
+### Debug Mode
+
+```bash
+npm run start:debug
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make changes with tests
+4. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
 
 ## Support
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+For support and questions, please check the API documentation at `/docs` or review the application logs.
 
-## Stay in touch
+## API Flow Example
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+1. User visits: `http://mydomain.com/750b8a33-9d1b-4726-a812-2cfc8dafbd67`
+2. Frontend shows modal for email input
+3. POST to `/redeem` with email and UUID
+4. Backend validates coupon and sends Perplexity login email via US proxy
+5. User receives Perplexity sign-in email with code/link
+6. All actions logged to database
 
-## License
+## Architecture Notes
+
+- **Modular Design**: Separate controllers, services, and entities
+- **Database First**: PostgreSQL with TypeORM
+- **Security**: JWT authentication for admin endpoints
+- **Logging**: Comprehensive audit trail
+- **Documentation**: Auto-generated Swagger docs
+- **Proxy Support**: US-based API routing
+- **Error Handling**: Graceful error responses
+- **Validation**: Input validation with decorators
+
+This backend provides a complete coupon redemption system with enterprise-grade features and comprehensive documentation.
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
