@@ -7,12 +7,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { PerplexityService } from './perplexity.service';
 import type { Browser } from 'puppeteer';
 
+import type { Page } from 'puppeteer';
+
 interface RedemptionSession {
   sessionId: string;
   email: string;
   couponId: string;
   browser: Browser;
-  page: any; // Accept any for now due to PerplexityService stub
+  page: Page;
   expiresAt: number;
 }
 
@@ -76,7 +78,7 @@ export class RedeemService {
       email,
       couponId,
       browser: result.browser,
-      page: result.page as unknown, // Replace 'unknown' with the actual expected type if known, e.g., 'Page'
+      page: result.page,
       expiresAt: Date.now() + 2 * 60 * 1000,
     };
 
@@ -103,12 +105,13 @@ export class RedeemService {
       throw new HttpException('Session expired', HttpStatus.GONE);
     }
 
-    const success = this.perplexityService.completeRedemption(
+    const success = await this.perplexityService.completeRedemption(
       session.page,
       codeOrLink,
     );
 
     if (!success) {
+      await this.cleanupSession(sessionId); // Cleanup on fail
       throw new HttpException('Invalid code or redemption failed', HttpStatus.BAD_REQUEST);
     }
 
@@ -172,6 +175,15 @@ export class RedeemService {
     const now = Date.now();
     for (const [sessionId, session] of this.sessions.entries()) {
       if (now > session.expiresAt) {
+        // Mark coupon as unblinded
+        const coupon = await this.couponRepo.findOne({ where: { id: session.couponId } });
+        if (coupon && coupon.state === 'reserved') {
+          coupon.state = 'unblinded';
+          coupon.reserved_by_email = null;
+          coupon.reserved_at = null;
+          coupon.reserved_expires_at = null;
+          await this.couponRepo.save(coupon);
+        }
         await this.cleanupSession(sessionId);
       }
     }
