@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import {
   Entity,
   PrimaryColumn,
@@ -7,26 +8,47 @@ import {
 } from 'typeorm';
 
 @Entity('coupons')
-@Check(`"status" IN ('unused', 'used', 'unvalid')`)
+@Check(`"state" IN ('unused', 'reserved', 'used', 'invalid', 'unblinded', 'pending_admin')`)
 export class Coupon {
-  @PrimaryColumn('uuid')
-  uuid: string;
+  @PrimaryColumn('uuid', { name: 'id' })
+  id: string;
 
   @Column({ type: 'text', unique: true })
   code: string;
 
-  @Column({ type: 'text' })
-  status: 'unused' | 'used' | 'unvalid';
+  @Column({ type: 'text', default: 'unused' })
+  state: 'unused' | 'reserved' | 'used' | 'invalid' | 'unblinded' | 'pending_admin';
+
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  meta: Record<string, any>;
 
   @Column({ type: 'text', nullable: true })
-  assigned_email: string;
+  reserved_by_email: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  reserved_by_phone: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  assigned_at: Date;
+  reserved_at: Date | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  used_at: Date;
+  reserved_expires_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  used_by_email: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  used_by_phone: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  used_at: Date | null;
+
+  @Column({ type: 'boolean', default: false })
+  is_unblinded: boolean;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
+
+  @Column({ type: 'timestamptz', default: () => 'now()' })
+  updated_at: Date;
 }

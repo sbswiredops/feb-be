@@ -1,81 +1,93 @@
+/* eslint-disable prettier/prettier */
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import axios, { AxiosInstance } from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import puppeteerExtra from 'puppeteer-extra';
+import type { Browser } from 'puppeteer';
+puppeteerExtra.use((StealthPlugin as unknown as () => any)());
 
 @Injectable()
 export class PerplexityService {
-  private readonly logger = new Logger(PerplexityService.name);
-  private readonly axiosInstance: AxiosInstance;
+    private readonly logger = new Logger(PerplexityService.name);
+    private readonly HEADLESS_TIMEOUT_MS = Number(
+        process.env.HEADLESS_TIMEOUT_MS ?? 30000,
+    );
+    private readonly PROXY = process.env.US_PROXY_URL ?? null;
 
-  constructor(private configService: ConfigService) {
-    const proxyUrl = this.configService.get<string>('HTTP_PROXY');
-    const apiBase = this.configService.get<string>('PERPLEXITY_API_BASE');
-    const apiKey = this.configService.get<string>('PERPLEXITY_API_KEY');
-
-    // Create axios instance with US proxy configuration
-    this.axiosInstance = axios.create({
-      baseURL: apiBase,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000,
-    });
-
-    // Configure proxy if provided
-    if (proxyUrl) {
-      const httpsAgent = new HttpsProxyAgent(proxyUrl);
-      this.axiosInstance.defaults.httpsAgent = httpsAgent;
-      this.axiosInstance.defaults.proxy = false; // Disable axios built-in proxy
-      this.logger.log(`Configured US proxy: ${proxyUrl}`);
-    } else {
-      this.logger.warn('No HTTP_PROXY configured - requests will not be proxied');
+    private buildLaunchArgs(): string[] {
+        const args = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+        ];
+        if (this.PROXY) args.push(`--proxy-server=${this.PROXY}`);
+        return args;
     }
-  }
 
-  async sendLoginEmail(email: string): Promise<boolean> {
-    try {
-      this.logger.log(`Sending Perplexity login email to: ${email}`);
-      
-      // Note: This is a placeholder for the actual Perplexity API endpoint
-      // Replace with the actual endpoint when available
-      const response = await this.axiosInstance.post('/auth/send-login-email', {
-        email,
-        redirect_url: this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000',
-      });
-
-      this.logger.log(`Perplexity API response status: ${response.status}`);
-      return response.status === 200 || response.status === 201;
-    } catch (error) {
-      this.logger.error('Failed to send Perplexity login email:', error.message);
-      if (error.response) {
-        this.logger.error('Response data:', error.response.data);
-        this.logger.error('Response status:', error.response.status);
-      }
-      return false;
+    private parseProxyAuth(
+        proxyUrl: string | null,
+    ): { username?: string; password?: string } | null {
+        if (!proxyUrl) return null;
+        try {
+            const u = new URL(proxyUrl);
+            if (u.username || u.password) {
+                return {
+                    username: decodeURIComponent(u.username),
+                    password: decodeURIComponent(u.password),
+                };
+            }
+            return null;
+        } catch {
+            return null;
+        }
     }
-  }
 
-  /**
-   * Test the proxy connection and API availability
-   */
-  async testConnection(): Promise<{ success: boolean; message: string }> {
-    try {
-      // Test with a simple API call
-      const response = await this.axiosInstance.get('/health', {
-        timeout: 10000,
-      });
-      
-      return {
-        success: true,
-        message: `Connection successful. Status: ${response.status}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: `Connection failed: ${error.message}`,
-      };
+    async launchBrowser(): Promise<Browser> {
+        try {
+            const browser = await puppeteerExtra.launch({
+                headless: true,
+                args: this.buildLaunchArgs(),
+            });
+            return browser;
+        } catch (err: unknown) {
+            if (err instanceof Error)
+                this.logger.error('Failed to launch browser: ' + err.message);
+            else this.logger.error('Failed to launch browser (unknown error)');
+            throw err;
+        }
     }
-  }
+
+    /**
+     * Starts the redemption flow. Returns either immediate success or a browser/page for further steps.
+     */
+    async startRedemptionFlow(
+        _email: string,
+        _code: string,
+        _targetUrl: string,
+    ): Promise<
+        | { immediateSuccess: true; browser?: Browser; page?: never }
+        | { immediateSuccess: false; browser: Browser; page: any }
+    > {
+        // TODO: Implement actual Puppeteer logic here
+        // For now, return a stub indicating waiting for code
+        void _email;
+        void _code;
+        void _targetUrl;
+        const browser = await this.launchBrowser();
+        const page = await browser.newPage();
+        // Simulate: always require code for now
+        return { immediateSuccess: false, browser, page };
+    }
+
+    /**
+     * Completes the redemption flow with a code or magic link.
+     * Returns true if successful, false otherwise.
+     */
+    completeRedemption(page: any, codeOrLink: string): boolean {
+        // TODO: Implement actual Puppeteer logic here
+        // For now, always return true for demo
+        void page;
+        void codeOrLink;
+        return true;
+    }
 }

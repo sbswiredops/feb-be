@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, IsUUID, MinLength } from 'class-validator';
 
@@ -65,10 +66,10 @@ export class CouponResponseDto {
   assigned_email: string;
 
   @ApiProperty({ description: 'Assignment date', nullable: true })
-  assigned_at: Date;
+  assigned_at: Date | null;
 
   @ApiProperty({ description: 'Usage date', nullable: true })
-  used_at: Date;
+  used_at: Date | null;
 
   @ApiProperty({ description: 'Creation date' })
   created_at: Date;

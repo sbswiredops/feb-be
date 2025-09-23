@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import {
   Controller,
   Post,
@@ -40,7 +41,7 @@ export class AdminController {
     private couponRepository: Repository<Coupon>,
     private jwtService: JwtService,
     private loggingService: LoggingService,
-  ) {}
+  ) { }
 
   @Post('login')
   @ApiOperation({
@@ -111,7 +112,15 @@ export class AdminController {
       timestamp: new Date(),
     });
 
-    return coupons;
+    return coupons.map(coupon => ({
+      uuid: coupon.id,
+      code: coupon.code,
+      status: coupon.state,
+      assigned_email: coupon.used_by_email ?? '',
+      assigned_at: null, // No direct field, set to null or map if you add one
+      used_at: coupon.used_at,
+      created_at: coupon.created_at,
+    }));
   }
 
   @Post('add-coupon')
@@ -134,7 +143,7 @@ export class AdminController {
 
     // Check if coupon already exists
     const existingCoupon = await this.couponRepository.findOne({
-      where: [{ uuid }, { code }],
+      where: [{ id: uuid }, { code }],
     });
 
     if (existingCoupon) {
@@ -145,9 +154,9 @@ export class AdminController {
     }
 
     const coupon = this.couponRepository.create({
-      uuid,
+      id: uuid,
       code,
-      status: 'unused',
+      state: 'unused',
     });
 
     const savedCoupon = await this.couponRepository.save(coupon);
@@ -158,7 +167,15 @@ export class AdminController {
       timestamp: new Date(),
     });
 
-    return savedCoupon;
+    return {
+      uuid: savedCoupon.id,
+      code: savedCoupon.code,
+      status: savedCoupon.state,
+      assigned_email: savedCoupon.used_by_email ?? '',
+      assigned_at: null,
+      used_at: savedCoupon.used_at,
+      created_at: savedCoupon.created_at,
+    };
   }
 
   @Post('reset-coupon')
@@ -180,7 +197,7 @@ export class AdminController {
     const { uuid } = resetCouponDto;
 
     const coupon = await this.couponRepository.findOne({
-      where: { uuid },
+      where: { id: uuid },
     });
 
     if (!coupon) {
@@ -191,9 +208,8 @@ export class AdminController {
     }
 
     // Reset coupon to unused state
-    coupon.status = 'unused';
-    coupon.assigned_email = null;
-    coupon.assigned_at = null;
+    coupon.state = 'unused';
+    coupon.used_by_email = null;
     coupon.used_at = null;
 
     const savedCoupon = await this.couponRepository.save(coupon);
@@ -204,6 +220,14 @@ export class AdminController {
       timestamp: new Date(),
     });
 
-    return savedCoupon;
+    return {
+      uuid: savedCoupon.id,
+      code: savedCoupon.code,
+      status: savedCoupon.state,
+      assigned_email: savedCoupon.used_by_email ?? '',
+      assigned_at: null,
+      used_at: savedCoupon.used_at,
+      created_at: savedCoupon.created_at,
+    };
   }
 }

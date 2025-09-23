@@ -1,5 +1,6 @@
+/* eslint-disable prettier/prettier */
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsUUID } from 'class-validator';
+import { IsEmail, IsUUID, IsOptional, IsString } from 'class-validator';
 
 export class RedeemDto {
   @ApiProperty({
@@ -10,11 +11,30 @@ export class RedeemDto {
   email: string;
 
   @ApiProperty({
-    description: 'Coupon UUID',
+    description: 'Coupon UUID (id)',
     example: '750b8a33-9d1b-4726-a812-2cfc8dafbd67',
   })
   @IsUUID()
   uuid: string;
+
+  @ApiProperty({
+    description: 'Target redemption page URL (optional)',
+    example: 'https://o2perplexity.online/redeem',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  targetUrl?: string;
+}
+
+export class VerifyDto {
+  @ApiProperty({ example: 'session-id-or-key' })
+  @IsString()
+  sessionId: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  codeOrLink: string;
 }
 
 export class RedeemResponseDto {
