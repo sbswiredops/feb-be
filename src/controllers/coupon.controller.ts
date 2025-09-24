@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prettier/prettier */
 import {
   Controller,
@@ -48,40 +49,40 @@ export class CouponController {
     }
   }
 
-  @Post('redeem/verify')
-  @ApiOperation({
-    summary: 'Verify redemption code',
-    description:
-      'Takes sessionId + code/magic link from email. Uses Puppeteer session to complete redemption. Marks coupon used if successful.',
-  })
-  async verify(@Body() verifyDto: VerifyDto) {
-    try {
-      return await this.redeemService.verifySessionCode(
-        verifyDto.sessionId,
-        verifyDto.codeOrLink,
-      );
-    } catch (err: unknown) {
-      let message = 'Verification error';
-      let status = HttpStatus.INTERNAL_SERVER_ERROR;
-      if (
-        err &&
-        typeof err === 'object' &&
-        'message' in err &&
-        typeof (err as { message?: unknown }).message === 'string'
-      ) {
-        message = (err as { message: string }).message;
-      }
-      if (
-        err &&
-        typeof err === 'object' &&
-        'status' in err &&
-        typeof (err as { status?: unknown }).status === 'number'
-      ) {
-        status = (err as { status: number }).status;
-      }
-      throw new HttpException(message, status);
-    }
-  }
+  // @Post('redeem/verify')
+  // @ApiOperation({
+  //   summary: 'Verify redemption code',
+  //   description:
+  //     'Takes sessionId + code/magic link from email. Uses Puppeteer session to complete redemption. Marks coupon used if successful.',
+  // })
+  // async verify(@Body() verifyDto: VerifyDto) {
+  //   try {
+  //     return await this.redeemService.verifySessionCode(
+  //       verifyDto.sessionId,
+  //       verifyDto.codeOrLink,
+  //     );
+  //   } catch (err: unknown) {
+  //     let message = 'Verification error';
+  //     let status = HttpStatus.INTERNAL_SERVER_ERROR;
+  //     if (
+  //       err &&
+  //       typeof err === 'object' &&
+  //       'message' in err &&
+  //       typeof (err as { message?: unknown }).message === 'string'
+  //     ) {
+  //       message = (err as { message: string }).message;
+  //     }
+  //     if (
+  //       err &&
+  //       typeof err === 'object' &&
+  //       'status' in err &&
+  //       typeof (err as { status?: unknown }).status === 'number'
+  //     ) {
+  //       status = (err as { status: number }).status;
+  //     }
+  //     throw new HttpException(message, status);
+  //   }
+  // }
 
   @Get('redeem/status/:sessionId')
   @ApiOperation({

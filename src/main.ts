@@ -38,7 +38,7 @@ async function bootstrap() {
       },
       'JWT-auth',
     )
-    .addServer('http://localhost:5000', 'Development server')
+    .addServer('http://localhost:8080', 'Development server')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -48,7 +48,7 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(process.env.PORT ?? 5000, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 8080, '0.0.0.0');
   console.log(`Application is running on: ${await app.getUrl()}`);
   console.log(`Swagger documentation available at: ${await app.getUrl()}/docs`);
 }

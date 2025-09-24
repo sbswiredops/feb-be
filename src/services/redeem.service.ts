@@ -1,26 +1,16 @@
 /* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Coupon } from '../entities/coupon.entity';
-import { v4 as uuidv4 } from 'uuid';
 import { PerplexityService } from './perplexity.service';
-import type { Browser } from 'puppeteer';
 
-import type { Page } from 'puppeteer';
-
-interface RedemptionSession {
-  sessionId: string;
-  email: string;
-  couponId: string;
-  browser: Browser;
-  page: Page;
-  expiresAt: number;
-}
 
 @Injectable()
 export class RedeemService {
-  private sessions = new Map<string, RedemptionSession>();
+
 
   constructor(
     @InjectRepository(Coupon)
@@ -29,7 +19,7 @@ export class RedeemService {
   ) { }
 
   /**
-   * Start redemption: reserve coupon + puppeteer flow
+   * Start redemption: reserve coupon + send sign-in code via Perplexity API
    */
   async startRedeem(email: string, couponId: string) {
     const coupon = await this.couponRepo.findOne({ where: { id: couponId } });
@@ -47,84 +37,25 @@ export class RedeemService {
     coupon.reserved_expires_at = new Date(Date.now() + 2 * 60 * 1000); // 2 min
     await this.couponRepo.save(coupon);
 
-    // spin puppeteer session (targetUrl removed)
-    const result = await this.perplexityService.startRedemptionFlow(
-      email,
-      coupon.code
-    );
-
-    if (result.immediateSuccess) {
-      coupon.state = 'used';
-      coupon.used_by_email = email;
-      coupon.used_at = new Date();
-      await this.couponRepo.save(coupon);
-
-      if (result.browser) {
-        await result.browser.close();
-      }
-
-      return { success: true, message: 'Coupon redeemed immediately' };
-    }
-
-    // else wait for code
-    if (!result.browser || !result.page) {
-      throw new HttpException('Redemption session failed to start', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    const sessionId = uuidv4();
-    const session: RedemptionSession = {
-      sessionId,
-      email,
-      couponId,
-      browser: result.browser,
-      page: result.page,
-      expiresAt: Date.now() + 2 * 60 * 1000,
-    };
-
-    this.sessions.set(sessionId, session);
+    // Backend triggers Perplexity sign-in code delivery
+    const perplexityResult = await this.perplexityService.startRedemptionFlow(email);
 
     return {
-      success: false,
-      waiting_for_code: true,
-      sessionId,
+      success: perplexityResult.success,
+      message: perplexityResult.success
+        ? 'Coupon reserved. Please check your email for the sign-in code.'
+        : 'Coupon reserved, but failed to send sign-in code.',
       expiresIn: 120,
+      perplexity: perplexityResult,
     };
   }
 
   /**
-   * Verify code or magic link with existing session
+   * Verify code or magic link (dummy implementation, since Perplexity API does not support direct code verification)
    */
-  async verifySessionCode(sessionId: string, codeOrLink: string) {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new HttpException('Session not found or expired', HttpStatus.NOT_FOUND);
-    }
-    if (Date.now() > session.expiresAt) {
-      await this.cleanupSession(sessionId);
-      throw new HttpException('Session expired', HttpStatus.GONE);
-    }
-
-    const success = await this.perplexityService.completeRedemption(
-      session.page,
-      codeOrLink,
-    );
-
-    if (!success) {
-      await this.cleanupSession(sessionId); // Cleanup on fail
-      throw new HttpException('Invalid code or redemption failed', HttpStatus.BAD_REQUEST);
-    }
-
-    // mark coupon used
-    const coupon = await this.couponRepo.findOne({ where: { id: session.couponId } });
-    if (coupon) {
-      coupon.state = 'used';
-      coupon.used_by_email = session.email;
-      coupon.used_at = new Date();
-      await this.couponRepo.save(coupon);
-    }
-
-    await this.cleanupSession(sessionId);
-    return { success: true, message: 'Coupon redeemed successfully' };
+  verifySessionCode(sessionId: string, codeOrLink: string) {
+    // In API-only flow, you may need to implement this differently, or handle via FE
+    throw new HttpException('Code verification not supported via API. Please use the email link.', HttpStatus.NOT_IMPLEMENTED);
   }
 
   /**
@@ -152,39 +83,5 @@ export class RedeemService {
     return { success: true, coupon };
   }
 
-  /**
-   * Cleanup session
-   */
-  private async cleanupSession(sessionId: string) {
-    const session = this.sessions.get(sessionId);
-    if (session) {
-      try {
-        await session.browser.close();
-      } catch (error) {
-        void error; // Ignore cleanup errors
-      }
-      this.sessions.delete(sessionId);
-    }
-  }
-
-  /**
-   * Cleanup expired sessions (call this periodically)
-   */
-  async cleanupExpiredSessions() {
-    const now = Date.now();
-    for (const [sessionId, session] of this.sessions.entries()) {
-      if (now > session.expiresAt) {
-        // Mark coupon as unblinded
-        const coupon = await this.couponRepo.findOne({ where: { id: session.couponId } });
-        if (coupon && coupon.state === 'reserved') {
-          coupon.state = 'unblinded';
-          coupon.reserved_by_email = null;
-          coupon.reserved_at = null;
-          coupon.reserved_expires_at = null;
-          await this.couponRepo.save(coupon);
-        }
-        await this.cleanupSession(sessionId);
-      }
-    }
-  }
+  // ...existing code for admin utilities...
 }
