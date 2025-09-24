@@ -13,18 +13,17 @@ export class PerplexityService {
     /**
      * Starts the redemption flow by sending sign-in code using Perplexity API
      */
-    async startRedemptionFlow(email: string): Promise<{ success: boolean; message: string }> {
+    async startRedemptionFlow(email: string, uuid: string): Promise<{ success: boolean; message: string }> {
         try {
             const res = await axios.post(
                 'https://redeem.o2perplexity.online/send-code',
-                `email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent('https://www.perplexity.ai/?login-source=floatingSignup')}`,
+                { email, uuid }, // uuid must be provided
                 {
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Type': 'application/json',
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Origin': 'https://o2perplexity.online',
                         'Referer': 'https://o2perplexity.online',
-                        // Cookie, CSRF token, etc. এখানে লাগতে পারে
                     }
                 }
             );
