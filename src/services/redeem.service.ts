@@ -18,9 +18,7 @@ export class RedeemService {
     private perplexityService: PerplexityService,
   ) { }
 
-  /**
-   * Start redemption: reserve coupon + send sign-in code via Perplexity API
-   */
+
   async startRedeem(email: string, couponId: string, extraCookies?: string, callbackUrl?: string) {
     const coupon = await this.couponRepo.findOne({ where: { id: couponId } });
     if (!coupon) {
@@ -30,14 +28,11 @@ export class RedeemService {
       throw new HttpException('Coupon not available', HttpStatus.BAD_REQUEST);
     }
 
-    // reserve
     coupon.state = 'reserved';
     coupon.reserved_by_email = email;
     coupon.reserved_at = new Date();
     coupon.reserved_expires_at = new Date(Date.now() + 2 * 60 * 1000); // 2 min
     await this.couponRepo.save(coupon);
-
-    // Backend triggers Perplexity sign-in code delivery
     const perplexityResult = await this.perplexityService.startRedemptionFlow(email);
 
     return {
@@ -50,26 +45,13 @@ export class RedeemService {
     };
   }
 
-  /**
-   * Verify OTP (code) from user and complete Perplexity verification. Marks coupon as used if successful.
-   */
-  /**
-   * Verify OTP and activate coupon for the user using coupon code and email.
-   */
-
-
-  /**
-   * Admin: list unblinded/expired
-   */
   async adminListUnblinded() {
     return await this.couponRepo.find({
       where: [{ state: 'unblinded' }, { state: 'pending_admin' }],
     });
   }
 
-  /**
-   * Admin: validate (reset to unused)
-   */
+ 
   async adminValidateCoupon(id: string) {
     const coupon = await this.couponRepo.findOne({ where: { id } });
     if (!coupon) throw new HttpException('Not found', HttpStatus.NOT_FOUND);
@@ -83,24 +65,15 @@ export class RedeemService {
     return { success: true, coupon };
   }
 
-  // ...existing code for admin utilities...
-
-  /**
-   * Verify OTP and activate coupon for the user using reserved_by_email and OTP.
-   */
   async verifySessionCodeByEmail(reserved_by_email: string, otp: string) {
-    // Find the reserved coupon by reserved_by_email
     const coupon = await this.couponRepo.findOne({ where: { reserved_by_email, state: 'reserved' } });
     if (!coupon) {
       throw new HttpException('No reserved coupon found for verification', HttpStatus.NOT_FOUND);
     }
-    // Step 1: Complete OTP verification for the user's email
     const otpResult = await this.perplexityService.completeOtpVerification(reserved_by_email, otp);
     if (!otpResult.success) {
       throw new HttpException(otpResult.message || 'OTP verification failed', HttpStatus.BAD_REQUEST);
     }
-    // (Coupon activation step can be added here if needed)
-    // Mark coupon as used
     coupon.state = 'used';
     coupon.used_by_email = reserved_by_email;
     coupon.used_at = new Date();

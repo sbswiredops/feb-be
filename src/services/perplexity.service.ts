@@ -193,83 +193,81 @@ export class PerplexityService {
             puppeteer.use(StealthPlugin());
             browser = await puppeteer.launch({ headless: true });
             const page = await browser.newPage();
+
+            // Log browser console for OTP verification
+            page.on('console', msg => {
+                this.logger.log(`[Puppeteer][Console][OTP] ${msg.type()}: ${msg.text()}`);
+            });
+
             await page.setUserAgent('Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36');
             await page.setViewport({ width: 400, height: 800, isMobile: true });
+
+            // Go to the OTP verification page
             await page.goto(`https://www.perplexity.ai/auth/verify-request?email=${encodeURIComponent(email)}`, { waitUntil: 'networkidle2' });
             await new Promise(res => setTimeout(res, 1000 + Math.random() * 1000));
 
-            // Fill OTP input and submit the form as a user would
-            // 1. Wait for OTP input
-            const otpSelector = 'input[type="text"],input[type="number"],input[autocomplete*="one-time-code"],input[placeholder*="code" i],input[placeholder*="OTP" i]';
+            // Wait for the OTP input box (placeholder: "Enter Code")
+            const otpSelector = 'input[placeholder="Enter Code"]';
             await page.waitForSelector(otpSelector, { timeout: 7000 });
             const otpInput = await page.$(otpSelector);
             if (!otpInput) {
-                return { success: false, message: 'OTP input not found on page.' };
+                return { success: false, message: 'OTP input not found.' };
             }
-            // Human-like typing
+
+            // Type the OTP and force input events
             await otpInput.focus();
-            for (const char of otp) {
-                await page.keyboard.type(char, { delay: 80 + Math.random() * 70 });
-            }
-            await page.evaluate((selector) => {
-                const el = document.querySelector(selector);
+            await page.evaluate((selector, otp) => {
+                const el = document.querySelector(selector) as HTMLInputElement;
                 if (el) {
+                    el.value = otp;
                     el.dispatchEvent(new Event('input', { bubbles: true }));
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                     el.dispatchEvent(new Event('blur', { bubbles: true }));
                 }
-            }, otpSelector);
+            }, otpSelector, otp);
+
+            // Wait a bit before clicking
             await new Promise(res => setTimeout(res, 500 + Math.random() * 500));
 
-            // 2. Find and click the submit/continue/verify button
-            const submitBtnHandle = await page.evaluateHandle(() => {
-                const btns = Array.from(document.querySelectorAll('button,input[type="submit"]'));
-                return btns.find(btn => btn.textContent && /verify|continue|submit|confirm|next|login|sign in|enter/i.test(btn.textContent)) || null;
-            });
-            // Cast to ElementHandle<Element> for correct typing
-            const submitBtn = submitBtnHandle.asElement() as unknown as ElementHandle<Element>;
-            if (!submitBtn) {
-                return { success: false, message: 'OTP submit button not found.' };
-            }
-            // Human-like mouse movement and click
-            const btnBox = await submitBtn.boundingBox();
-            if (btnBox) {
-                await page.mouse.move(btnBox.x + btnBox.width / 2, btnBox.y + btnBox.height / 2, { steps: 10 });
-                await new Promise(res => setTimeout(res, 200 + Math.random() * 200));
-            }
-            try {
-                await submitBtn.hover();
-                await new Promise(res => setTimeout(res, 200 + Math.random() * 200));
-                await submitBtn.click({ delay: 50 });
-            } catch {
-                await submitBtn.evaluate((el: HTMLElement) => el.click());
-            }
+            // Take a screenshot before searching for the Continue button
+            await page.screenshot({ path: `perplexity_otp_before_continue_${Date.now()}.png`, fullPage: true });
 
-            // Wait for navigation or fallback to timeout
+            // Wait for the Continue button to become enabled (timeout increased)
+            await page.waitForFunction(() => {
+                const btns = Array.from(document.querySelectorAll('button'));
+                return btns.some(btn =>
+                    btn.innerText && btn.innerText.trim().toLowerCase() === 'continue' && !btn.disabled
+                );
+            }, { timeout: 15000 });
+
+            // Now get the enabled Continue button
+            const continueBtnHandle = await page.evaluateHandle(() => {
+                const btns = Array.from(document.querySelectorAll('button'));
+                return btns.find(btn =>
+                    btn.innerText && btn.innerText.trim().toLowerCase() === 'continue' && !btn.disabled
+                ) || null;
+            });
+            const continueBtn = continueBtnHandle.asElement() as unknown as ElementHandle<Element>;
+            if (!continueBtn) {
+                return { success: false, message: 'Continue button not found or still disabled.' };
+            }
+            await continueBtn.click({ delay: 50 });
+
+            // Wait for navigation or a short delay
             try {
                 await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
             } catch {
-                // No navigation, fallback to short wait
                 await new Promise(res => setTimeout(res, 2000 + Math.random() * 1000));
             }
 
-            // 3. Check for success or error message
-            let pageContent = '';
-            let currentUrl = '';
-            try {
-                pageContent = await page.content();
-                currentUrl = page.url();
-            } catch (e) {
-                this.logger.warn('Execution context destroyed after OTP submit, treating as likely success.');
-                return { success: true, message: 'OTP verified (navigation occurred).' };
-            }
-
-            // Heuristic: success if redirected to home/account or see welcome/success
-            if (/home|account|priority|welcome|success|activated/i.test(currentUrl) || /welcome|success|activated|priority|account/i.test(pageContent)) {
+            // Check for success
+            const url = page.url();
+            const content = await page.content();
+            if (/home|account|priority|welcome|success|activated/i.test(url) || /welcome|success|activated|priority|account/i.test(content)) {
                 return { success: true, message: 'OTP verified successfully.' };
             }
             // Try to extract error message from page
-            const matches = pageContent.match(/(invalid|expired|wrong|incorrect|failed|error)[^<\n]{0,80}/i);
+            const matches = content.match(/(invalid|expired|wrong|incorrect|failed|error)[^<\n]{0,80}/i);
             const errorMsg = matches ? matches[0] : null;
             return { success: false, message: errorMsg || 'OTP verification failed.' };
         } catch (err) {
@@ -277,7 +275,7 @@ export class PerplexityService {
             return { success: false, message: 'OTP verification failed.' };
         } finally {
             if (browser) {
-                try { await browser.close(); } catch { }
+                try { await browser.close(); } catch { /* ignore error on browser close */ }
             }
         }
     }
