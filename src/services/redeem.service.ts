@@ -22,28 +22,70 @@ export class RedeemService {
   async startRedeem(email: string, couponId: string, extraCookies?: string, callbackUrl?: string) {
     const coupon = await this.couponRepo.findOne({ where: { id: couponId } });
     if (!coupon) {
-      throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
-    }
-    if (coupon.state !== 'unused') {
-      throw new HttpException('Coupon not available', HttpStatus.BAD_REQUEST);
+        throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
     }
 
-    coupon.state = 'reserved';
-    coupon.reserved_by_email = email;
-    coupon.reserved_at = new Date();
-    coupon.reserved_expires_at = new Date(Date.now() + 2 * 60 * 1000); // 2 min
-    await this.couponRepo.save(coupon);
-    const perplexityResult = await this.perplexityService.startRedemptionFlow(email);
+    if (coupon.state === 'used') {
+        return {
+            success: false,
+            message: `This coupon has already been used by ${coupon.used_by_email || 'N/A'} on ${coupon.used_at ? coupon.used_at.toISOString() : 'N/A'}.`,
+            state: 'used',
+            used_by_email: coupon.used_by_email,
+            used_at: coupon.used_at,
+        };
+    }
 
+    if (coupon.state === 'reserved') {
+        return {
+            success: false,
+            message: 'This coupon is already reserved. Please contact admin.',
+            state: 'reserved',
+            reserved_by_email: coupon.reserved_by_email,
+            reserved_at: coupon.reserved_at,
+            reserved_expires_at: coupon.reserved_expires_at,
+        };
+    }
+
+    if (coupon.state === 'unused') {
+        // Step 1: Activate coupon on Perplexity
+        const activateResult = await this.perplexityService.activateCouponOnPerplexity(coupon.code);
+        if (!activateResult.success) {
+            return {
+                success: false,
+                message: 'Failed to activate coupon on Perplexity. Please try again later.',
+                error: activateResult.message,
+            };
+        }
+
+        // Step 2: Reserve coupon and send sign-in code
+        coupon.state = 'reserved';
+        coupon.reserved_by_email = email;
+        coupon.reserved_at = new Date();
+        coupon.reserved_expires_at = new Date(Date.now() + 2 * 60 * 1000); // 2 min
+        await this.couponRepo.save(coupon);
+
+        const perplexityResult = await this.perplexityService.startRedemptionFlow(email);
+
+        return {
+            success: perplexityResult.success,
+            message: perplexityResult.success
+                ? 'Coupon activated and reserved. Please check your email for the sign-in code.'
+                : 'Coupon activated and reserved, but failed to send sign-in code.',
+            expiresIn: 120,
+            perplexity: perplexityResult,
+        };
+    }
+
+    // Fallback
     return {
-      success: perplexityResult.success,
-      message: perplexityResult.success
-        ? 'Coupon reserved. Please check your email for the sign-in code.'
-        : 'Coupon reserved, but failed to send sign-in code.',
-      expiresIn: 120,
-      perplexity: perplexityResult,
+        success: false,
+        message: 'Invalid coupon state.',
+        state: coupon.state,
     };
   }
+
+ 
+
 
   async adminListUnblinded() {
     return await this.couponRepo.find({

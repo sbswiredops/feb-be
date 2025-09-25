@@ -236,7 +236,7 @@ export class PerplexityService {
             await page.waitForFunction(() => {
                 const btns = Array.from(document.querySelectorAll('button'));
                 return btns.some(btn =>
-                    btn.innerText && btn.innerText.trim().toLowerCase() === 'continue' && !btn.disabled
+                    (btn as HTMLElement).innerText && (btn as HTMLElement).innerText.trim().toLowerCase() === 'continue' && !(btn).disabled
                 );
             }, { timeout: 15000 });
 
@@ -244,7 +244,7 @@ export class PerplexityService {
             const continueBtnHandle = await page.evaluateHandle(() => {
                 const btns = Array.from(document.querySelectorAll('button'));
                 return btns.find(btn =>
-                    btn.innerText && btn.innerText.trim().toLowerCase() === 'continue' && !btn.disabled
+                    (btn as HTMLElement).innerText && (btn as HTMLElement).innerText.trim().toLowerCase() === 'continue' && !(btn).disabled
                 ) || null;
             });
             const continueBtn = continueBtnHandle.asElement() as unknown as ElementHandle<Element>;
@@ -284,32 +284,73 @@ export class PerplexityService {
      * Activate coupon for a user by automating the coupon join page.
      * Navigates to https://www.perplexity.ai/join/p/priority?discount_code=CODE and completes activation.
      */
-    async activateCouponOnPerplexity( code: string): Promise<{ success: boolean; message: string }> {
+    async activateCouponOnPerplexity(code: string): Promise<{ success: boolean; message: string }> {
         try {
             puppeteer.use(StealthPlugin());
             const browser = await puppeteer.launch({ headless: true });
             const page = await browser.newPage();
             await page.setUserAgent('Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36');
             await page.setViewport({ width: 400, height: 800, isMobile: true });
+
             // Go to coupon activation page
             await page.goto(
                 `https://www.perplexity.ai/join/p/priority?discount_code=${encodeURIComponent(code)}&version=2.18&source=default`,
                 { waitUntil: 'networkidle2' }
             );
-            await new Promise(res => setTimeout(res, 1000 + Math.random() * 1000));
+            await new Promise(res => setTimeout(res, 10000)); // ১০ সেকেন্ড বা তার বেশি
 
-            // If login is required, try to login with email (reuse logic if needed)
-            // If already logged in, look for activate/join/continue button
-            const buttonHandle = await page.evaluateHandle(() => {
-                const btns = Array.from(document.querySelectorAll('button'));
-                return btns.find(btn => btn.textContent && /activate|join|continue|redeem|start/i.test(btn.textContent)) || null;
-            });
-            const buttonElement = buttonHandle.asElement();
-            if (buttonElement) {
-                const elementButton = buttonElement as unknown as import('puppeteer').ElementHandle<Element>;
-                await elementButton.click();
-                await new Promise(res => setTimeout(res, 2000 + Math.random() * 1000));
+            // Take screenshot BEFORE typing promo code
+            await page.screenshot({ path: `perplexity_coupon_before_${Date.now()}.png`, fullPage: true });
+
+            // Type promo code in the input box
+            const promoSelector = 'input[placeholder="Promo Code"]';
+            await page.waitForSelector(promoSelector, { timeout: 7000 });
+            const promoInput = await page.$(promoSelector);
+            if (!promoInput) {
+                await browser.close();
+                return { success: false, message: 'Promo code input not found.' };
             }
+            await promoInput.focus();
+            for (const char of code) {
+                await page.keyboard.type(char, { delay: 80 + Math.random() * 70 });
+            }
+            await page.evaluate((selector) => {
+                const el = document.querySelector(selector);
+                if (el) {
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    el.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+            }, promoSelector);
+
+            // Take screenshot AFTER typing promo code
+            await page.screenshot({ path: `perplexity_coupon_after_${Date.now()}.png`, fullPage: true });
+
+            // Wait for the Continue button to become enabled
+            await page.waitForFunction(() => {
+                const btns = Array.from(document.querySelectorAll('button[type="submit"]'));
+                return btns.some(btn =>
+                    (btn as HTMLElement).innerText && (btn as HTMLElement).innerText.trim().toLowerCase() === 'continue' && !(btn as HTMLButtonElement).disabled
+                );
+            }, { timeout: 10000 });
+
+            // Click the enabled Continue button
+            const continueBtnHandle = await page.evaluateHandle(() => {
+                const btns = Array.from(document.querySelectorAll('button[type="submit"]'));
+                return btns.find(btn =>
+                    (btn as HTMLElement).innerText && (btn as HTMLElement).innerText.trim().toLowerCase() === 'continue' && !(btn as HTMLButtonElement).disabled
+                ) || null;
+            });
+            const continueBtn = continueBtnHandle.asElement() as unknown as import('puppeteer').ElementHandle<Element>;
+            if (!continueBtn) {
+                await browser.close();
+                return { success: false, message: 'Continue button not found or still disabled.' };
+            }
+            await continueBtn.click({ delay: 50 });
+            await new Promise(res => setTimeout(res, 2000 + Math.random() * 1000));
+
+            // Take screenshot AFTER clicking continue
+            await page.screenshot({ path: `perplexity_coupon_final_${Date.now()}.png`, fullPage: true });
 
             // Check for success (look for redirect or success message)
             const url = page.url();
