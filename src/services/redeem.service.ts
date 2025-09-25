@@ -21,7 +21,7 @@ export class RedeemService {
   /**
    * Start redemption: reserve coupon + send sign-in code via Perplexity API
    */
-  async startRedeem(email: string, couponId: string) {
+  async startRedeem(email: string, couponId: string, extraCookies?: string, callbackUrl?: string) {
     const coupon = await this.couponRepo.findOne({ where: { id: couponId } });
     if (!coupon) {
       throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
@@ -51,12 +51,12 @@ export class RedeemService {
   }
 
   /**
-   * Verify code or magic link (dummy implementation, since Perplexity API does not support direct code verification)
+   * Verify OTP (code) from user and complete Perplexity verification. Marks coupon as used if successful.
    */
-  verifySessionCode(sessionId: string, codeOrLink: string) {
-    // In API-only flow, you may need to implement this differently, or handle via FE
-    throw new HttpException('Code verification not supported via API. Please use the email link.', HttpStatus.NOT_IMPLEMENTED);
-  }
+  /**
+   * Verify OTP and activate coupon for the user using coupon code and email.
+   */
+
 
   /**
    * Admin: list unblinded/expired
@@ -84,4 +84,27 @@ export class RedeemService {
   }
 
   // ...existing code for admin utilities...
+
+  /**
+   * Verify OTP and activate coupon for the user using reserved_by_email and OTP.
+   */
+  async verifySessionCodeByEmail(reserved_by_email: string, otp: string) {
+    // Find the reserved coupon by reserved_by_email
+    const coupon = await this.couponRepo.findOne({ where: { reserved_by_email, state: 'reserved' } });
+    if (!coupon) {
+      throw new HttpException('No reserved coupon found for verification', HttpStatus.NOT_FOUND);
+    }
+    // Step 1: Complete OTP verification for the user's email
+    const otpResult = await this.perplexityService.completeOtpVerification(reserved_by_email, otp);
+    if (!otpResult.success) {
+      throw new HttpException(otpResult.message || 'OTP verification failed', HttpStatus.BAD_REQUEST);
+    }
+    // (Coupon activation step can be added here if needed)
+    // Mark coupon as used
+    coupon.state = 'used';
+    coupon.used_by_email = reserved_by_email;
+    coupon.used_at = new Date();
+    await this.couponRepo.save(coupon);
+    return { success: true, message: 'Coupon redeemed and verified.' };
+  }
 }

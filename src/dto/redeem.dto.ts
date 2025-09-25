@@ -20,13 +20,13 @@ export class RedeemDto {
 }
 
 export class VerifyDto {
-  @ApiProperty({ example: 'session-id-or-key' })
+  @ApiProperty({ description: 'Reserved email address', example: 'alamindev031@gmail.com' })
   @IsString()
-  sessionId: string;
+  reserved_by_email: string;
 
-  @ApiProperty({ example: '123456' })
+  @ApiProperty({ description: 'OTP code sent to user email', example: '123456' })
   @IsString()
-  codeOrLink: string;
+  otp: string;
 }
 
 export class RedeemResponseDto {
