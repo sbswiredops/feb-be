@@ -284,7 +284,7 @@ export class PerplexityService {
      * Activate coupon for a user by automating the coupon join page.
      * Navigates to https://www.perplexity.ai/join/p/priority?discount_code=CODE and completes activation.
      */
-    async activateCouponOnPerplexity(email: string, code: string): Promise<{ success: boolean; message: string }> {
+    async activateCouponOnPerplexity( code: string): Promise<{ success: boolean; message: string }> {
         try {
             puppeteer.use(StealthPlugin());
             const browser = await puppeteer.launch({ headless: true });
@@ -292,7 +292,10 @@ export class PerplexityService {
             await page.setUserAgent('Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36');
             await page.setViewport({ width: 400, height: 800, isMobile: true });
             // Go to coupon activation page
-            await page.goto(`https://www.perplexity.ai/join/p/priority?discount_code=${encodeURIComponent(code)}`, { waitUntil: 'networkidle2' });
+            await page.goto(
+                `https://www.perplexity.ai/join/p/priority?discount_code=${encodeURIComponent(code)}&version=2.18&source=default`,
+                { waitUntil: 'networkidle2' }
+            );
             await new Promise(res => setTimeout(res, 1000 + Math.random() * 1000));
 
             // If login is required, try to login with email (reuse logic if needed)
