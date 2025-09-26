@@ -47,8 +47,9 @@ export class RedeemService {
     }
 
     if (coupon.state === 'unused') {
-        // Step 1: Activate coupon on Perplexity
-        const activateResult = await this.perplexityService.activateCouponOnPerplexity(coupon.code);
+        console.log('Coupon state before activation:', coupon);
+        const activateResult = await this.perplexityService.activateCouponOnPerplexity(coupon.code, email);
+        console.log('Activate result:', activateResult);
         if (!activateResult.success) {
             return {
                 success: false,
@@ -56,23 +57,16 @@ export class RedeemService {
                 error: activateResult.message,
             };
         }
-
-        // Step 2: Reserve coupon and send sign-in code
         coupon.state = 'reserved';
         coupon.reserved_by_email = email;
         coupon.reserved_at = new Date();
         coupon.reserved_expires_at = new Date(Date.now() + 2 * 60 * 1000); // 2 min
         await this.couponRepo.save(coupon);
-
-        const perplexityResult = await this.perplexityService.startRedemptionFlow(email);
-
+        console.log('Coupon after reserve:', coupon);
         return {
-            success: perplexityResult.success,
-            message: perplexityResult.success
-                ? 'Coupon activated and reserved. Please check your email for the sign-in code.'
-                : 'Coupon activated and reserved, but failed to send sign-in code.',
+            success: true,
+            message: 'Coupon activated and reserved. Please check your email for the sign-in code.',
             expiresIn: 120,
-            perplexity: perplexityResult,
         };
     }
 
