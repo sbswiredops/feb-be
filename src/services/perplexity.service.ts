@@ -311,101 +311,51 @@ export class PerplexityService {
             await page.setUserAgent('Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36');
             await page.setViewport({ width: 400, height: 800, isMobile: true });
 
-            // Go to coupon activation page
+            // Go to coupon activation page (promo code auto-applies)
             await page.goto(
-                `https://www.perplexity.ai/join/p/priority?discount_code`,
+                `https://www.perplexity.ai/join/p/priority?discount_code=${encodeURIComponent(code)}`,
                 { waitUntil: 'networkidle2', timeout: 60000 }
             );
             await new Promise(res => setTimeout(res, 5000 + Math.random() * 2000));
 
-            // Take screenshot BEFORE typing promo code
-            await page.screenshot({ path: `perplexity_coupon_before_${Date.now()}.png`, fullPage: true });
+            // Take screenshot after page load (should show email input or success)
+            await page.screenshot({ path: `perplexity_coupon_email_${Date.now()}.png`, fullPage: true });
 
-            // Type promo code in the input box
-            const promoSelector = 'input[placeholder="Promo Code"]';
-            let promoInput: import('puppeteer').ElementHandle<Element> | null = null;
+            // Wait for the email input to appear (or success modal)
+            const emailSelector = 'input[placeholder="Enter your email"]';
+            let emailInput: import('puppeteer').ElementHandle<Element> | null = null;
             try {
-                await page.waitForSelector(promoSelector, { timeout: 7000 });
-                promoInput = await page.$(promoSelector);
+                await page.waitForSelector(emailSelector, { timeout: 20000, visible: true });
+                emailInput = await page.$(emailSelector);
             } catch {
-                // Promo code input not found, check if already activated or success message present
+                // Email input not found, check for success modal/content
                 const content = await page.content();
                 if (
-                    /success|activated|already|eligible|free|subscription|congratulations|your coupon is active|thank you/i.test(content)
+                    /success|activated|already|eligible|free|subscription|congratulations|your coupon is active|thank you|priority|pro plan/i.test(content)
                 ) {
                     await page.screenshot({ path: `perplexity_coupon_success_${Date.now()}.png`, fullPage: true });
                     await browser.close();
                     return { success: true, message: 'Promo code already activated or success shown.' };
                 } else {
                     await browser.close();
-                    return { success: false, message: 'Promo code input not found and no success message.' };
+                    return { success: false, message: 'Email input not found and no success message.' };
                 }
             }
-            if (!promoInput) {
-                await browser.close();
-                return { success: false, message: 'Promo code input not found.' };
-            }
-            await promoInput.focus();
-            for (const char of code) {
-                await page.keyboard.type(char, { delay: 80 + Math.random() * 70 });
-            }
-            await page.evaluate((selector) => {
-                const el = document.querySelector(selector);
-                if (el) {
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                    el.dispatchEvent(new Event('blur', { bubbles: true }));
-                }
-            }, promoSelector);
 
-            // Take screenshot AFTER typing promo code
-            await page.screenshot({ path: `perplexity_coupon_after_${Date.now()}.png`, fullPage: true });
-
-            // Wait for the Continue button to become enabled and click it
-            await page.waitForFunction(() => {
-                const btns = Array.from(document.querySelectorAll('button[type="submit"]'));
-                return btns.some(btn =>
-                    (btn as HTMLElement).innerText && (btn as HTMLElement).innerText.trim().toLowerCase() === 'continue' && !(btn as HTMLButtonElement).disabled
-                );
-            }, { timeout: 10000 });
-
-            const continueBtnHandle = await page.evaluateHandle(() => {
-                const btns = Array.from(document.querySelectorAll('button[type="submit"]'));
-                return btns.find(btn =>
-                    (btn as HTMLElement).innerText && (btn as HTMLElement).innerText.trim().toLowerCase() === 'continue' && !(btn as HTMLButtonElement).disabled
-                ) || null;
-            });
-            const continueBtn = continueBtnHandle.asElement() as unknown as import('puppeteer').ElementHandle<Element>;
-            if (!continueBtn) {
-                await browser.close();
-                return { success: false, message: 'Continue button not found or still disabled.' };
-            }
-            await continueBtn.click({ delay: 50 });
-            // Delay বাড়ান, modal change/transition-এর জন্য
-            await new Promise(res => setTimeout(res, 6000 + Math.random() * 2000));
-
-            // Take screenshot AFTER clicking continue (should show email input)
-            await page.screenshot({ path: `perplexity_coupon_email_${Date.now()}.png`, fullPage: true });
-
-            // Wait for the email input to appear (placeholder চেক করুন screenshot দেখে)
-            const emailSelector = 'input[placeholder="Enter your email"]';
-            await page.waitForSelector(emailSelector, { timeout: 20000, visible: true }); // timeout ও visible বাড়ান
-
-            const emailInput = await page.$(emailSelector);
-            if (!emailInput) {
-                await browser.close();
-                return { success: false, message: 'Email input not found after promo code.' };
-            }
-
-            // Clear any existing value (safety)
+            // Type email and submit
             await page.evaluate((selector) => {
                 const el = document.querySelector(selector) as HTMLInputElement;
                 if (el) el.value = '';
             }, emailSelector);
 
-            await emailInput.focus();
-            for (const char of email) {
-                await page.keyboard.type(char, { delay: 80 + Math.random() * 70 });
+            if (emailInput) {
+                await emailInput.focus();
+                for (const char of email) {
+                    await page.keyboard.type(char, { delay: 80 + Math.random() * 70 });
+                }
+            } else {
+                await browser.close();
+                return { success: false, message: 'Email input not found.' };
             }
             await page.evaluate((selector) => {
                 const el = document.querySelector(selector);
