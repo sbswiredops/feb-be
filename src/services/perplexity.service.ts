@@ -17,7 +17,7 @@ export class PerplexityService {
     let browser: Browser | null = null;
     try {
       puppeteer.use(StealthPlugin());
-      browser = await puppeteer.launch({ headless: true }); // changed to headless: true
+      browser = await puppeteer.launch({ headless: false }); // changed to headless: true
       const page = await browser.newPage();
 
       page.on('console', (msg) => {
@@ -155,7 +155,7 @@ export class PerplexityService {
       const proxyArgs = proxyUrl ? [`--proxy-server=${proxyUrl}`] : [];
 
       const browser = await puppeteer.launch({
-        headless: true,
+        headless: false,
         args: proxyArgs,
       });
       const page = await browser.newPage();
@@ -173,101 +173,96 @@ export class PerplexityService {
       await page.setViewport({ width: 400, height: 800, isMobile: true });
 
       await page.goto(
-        `https://www.perplexity.ai/join/p/priority?discount_code=${encodeURIComponent(code)}`,
+        `https://www.perplexity.ai/join/p/priority?discount_code`,
         { waitUntil: 'networkidle2', timeout: 60000 },
       );
       await new Promise((res) => setTimeout(res, 5000 + Math.random() * 2000));
 
       // Removed screenshot
 
-      const emailSelector = 'input[placeholder="Enter your email"]';
-      let emailInput: import('puppeteer').ElementHandle<Element> | null = null;
-      try {
-        await page.waitForSelector(emailSelector, {
-          timeout: 20000,
-          visible: true,
-        });
-        emailInput = await page.$(emailSelector);
-      } catch {
-        const content = await page.content();
-        if (
-          /success|activated|already|eligible|free|subscription|congratulations|your coupon is active|thank you|priority|pro plan/i.test(
-            content,
-          )
-        ) {
-          // Removed screenshot
-          await browser.close();
-          return {
-            success: true,
-            message: 'Promo code already activated or success shown.',
-          };
-        } else {
-          await browser.close();
-          return {
-            success: false,
-            message: 'Email input not found and no success message.',
-          };
+      // 1. Set coupon code and trigger Continue
+      const couponSelector = 'input[placeholder="Promo Code"]';
+      await page.waitForSelector(couponSelector, { timeout: 10000, visible: true });
+      const couponInput = await page.$(couponSelector);
+      if (couponInput) {
+        await couponInput.focus();
+        for (const char of code) {
+          await page.keyboard.type(char, { delay: 80 + Math.random() * 70 });
+        }
+        await page.evaluate((selector) => {
+          const el = document.querySelector(selector) as HTMLInputElement;
+          if (el) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('blur', { bubbles: true }));
+          }
+        }, couponSelector);
+
+        // Wait for the Continue button to be enabled
+        const continueBtnSelector = 'button[type="submit"]';
+        await page.waitForFunction(
+          (selector) => {
+            const btn = document.querySelector(selector) as HTMLButtonElement;
+            return btn && !btn.disabled;
+          },
+          { timeout: 10000 },
+          continueBtnSelector,
+        );
+        // Click the Continue button after promo code
+        const continueBtn = await page.$(continueBtnSelector);
+        if (continueBtn) {
+          await continueBtn.click({ delay: 50 });
+          await new Promise((res) => setTimeout(res, 1500 + Math.random() * 500));
         }
       }
 
-      await page.evaluate((selector) => {
-        const el = document.querySelector(selector) as HTMLInputElement;
-        if (el) el.value = '';
-      }, emailSelector);
-
+      // 2. Set email and trigger "Continue with email" button
+      const emailSelector = 'input[placeholder="Enter your email"]';
+      await page.waitForSelector(emailSelector, { timeout: 20000, visible: true });
+      const emailInput = await page.$(emailSelector);
       if (emailInput) {
         await emailInput.focus();
         for (const char of email) {
           await page.keyboard.type(char, { delay: 80 + Math.random() * 70 });
         }
-      } else {
-        await browser.close();
-        return { success: false, message: 'Email input not found.' };
-      }
-      await page.evaluate((selector) => {
-        const el = document.querySelector(selector);
-        if (el) {
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          el.dispatchEvent(new Event('blur', { bubbles: true }));
-        }
-      }, emailSelector);
+        await page.evaluate((selector) => {
+          const el = document.querySelector(selector) as HTMLInputElement;
+          if (el) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('blur', { bubbles: true }));
+          }
+        }, emailSelector);
 
-      await page.waitForFunction(
-        () => {
+        // Wait for the "Continue with email" button to be enabled
+        await page.waitForFunction(() => {
           const btns = Array.from(document.querySelectorAll('button'));
           return btns.some(
             (btn) =>
-              btn.textContent &&
-              btn.textContent.trim().toLowerCase() === 'continue with email' &&
-              !btn.hasAttribute('disabled'),
+              btn.textContent?.trim().toLowerCase() === 'continue with email' &&
+              !btn.hasAttribute('disabled')
           );
-        },
-        { timeout: 10000 },
-      );
+        }, { timeout: 100000 });
 
-      const continueEmailBtnHandle = await page.evaluateHandle(() => {
-        const btns = Array.from(document.querySelectorAll('button'));
-        return (
-          btns.find(
-            (btn) =>
-              btn.textContent &&
-              btn.textContent.trim().toLowerCase() === 'continue with email' &&
-              !btn.hasAttribute('disabled'),
-          ) || null
-        );
-      });
-      const continueEmailBtn =
-        continueEmailBtnHandle.asElement() as unknown as import('puppeteer').ElementHandle<Element>;
-      if (!continueEmailBtn) {
-        await browser.close();
-        return {
-          success: false,
-          message: 'Continue with email button not found or still disabled.',
-        };
+        // Click the "Continue with email" button
+        const continueEmailBtn = await page.evaluateHandle(() => {
+          const btns = Array.from(document.querySelectorAll('button'));
+          return (
+            btns.find(
+              (btn) =>
+                btn.textContent?.trim().toLowerCase() === 'continue with email' &&
+                !btn.hasAttribute('disabled')
+            ) || null
+          );
+        });
+        if (continueEmailBtn && continueEmailBtn.asElement()) {
+          await (continueEmailBtn.asElement() as import('puppeteer').ElementHandle<Element>).click({ delay: 50 });
+          await new Promise((res) => setTimeout(res, 2000 + Math.random() * 1000));
+        } else {
+          await browser.close();
+          return { success: false, message: '"Continue with email" button not found or not enabled.' };
+        }
       }
-      await continueEmailBtn.click({ delay: 50 });
-      await new Promise((res) => setTimeout(res, 2000 + Math.random() * 1000));
 
       // Removed screenshot
 
