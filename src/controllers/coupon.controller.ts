@@ -55,9 +55,12 @@ export class CouponController {
       'Takes OTP from user. Uses Puppeteer session to complete Perplexity verification. Marks coupon used if successful.',
   })
   async verify(@Body() verifyDto: VerifyDto) {
-    const { reserved_by_email, otp } = verifyDto;
+    const { reserved_by_email, otp, sessionId } = verifyDto; // sessionId add
+    if (!sessionId) {
+      throw new HttpException('Missing sessionId', HttpStatus.BAD_REQUEST);
+    }
     try {
-      return await this.redeemService.verifySessionCodeByEmail(reserved_by_email, otp);
+      return await this.redeemService.verifySessionCodeByEmail(reserved_by_email, otp, sessionId); // sessionId pass
     } catch (err: unknown) {
       let message = 'Verification error';
       let status = HttpStatus.INTERNAL_SERVER_ERROR;

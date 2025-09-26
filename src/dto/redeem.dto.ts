@@ -16,7 +16,6 @@ export class RedeemDto {
   })
   @IsUUID()
   uuid: string;
-
 }
 
 export class VerifyDto {
@@ -27,6 +26,10 @@ export class VerifyDto {
   @ApiProperty({ description: 'OTP code sent to user email', example: '123456' })
   @IsString()
   otp: string;
+
+  @ApiProperty({ description: 'Session ID from startRedeem', example: 'b1a2c3d4-5678-90ab-cdef-1234567890ab' })
+  @IsString()
+  sessionId: string;
 }
 
 export class RedeemResponseDto {

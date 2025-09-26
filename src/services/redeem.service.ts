@@ -67,6 +67,7 @@ export class RedeemService {
             success: true,
             message: 'Coupon activated and reserved. Please check your email for the sign-in code.',
             expiresIn: 120,
+            sessionId: activateResult.sessionId, // FE will need this for OTP submit
         };
     }
 
@@ -101,12 +102,13 @@ export class RedeemService {
     return { success: true, coupon };
   }
 
-  async verifySessionCodeByEmail(reserved_by_email: string, otp: string) {
+  async verifySessionCodeByEmail(reserved_by_email: string, otp: string, sessionId: string) {
     const coupon = await this.couponRepo.findOne({ where: { reserved_by_email, state: 'reserved' } });
     if (!coupon) {
       throw new HttpException('No reserved coupon found for verification', HttpStatus.NOT_FOUND);
     }
-    const otpResult = await this.perplexityService.completeOtpVerification(reserved_by_email, otp);
+    // OTP submit directly to perplexityService (no completeOtpVerification needed)
+    const otpResult = await this.perplexityService.submitOtp(sessionId, otp);
     if (!otpResult.success) {
       throw new HttpException(otpResult.message || 'OTP verification failed', HttpStatus.BAD_REQUEST);
     }
