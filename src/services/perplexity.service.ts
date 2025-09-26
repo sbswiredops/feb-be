@@ -155,7 +155,7 @@ export class PerplexityService {
       const proxyArgs = proxyUrl ? [`--proxy-server=${proxyUrl}`] : [];
 
       const browser = await puppeteer.launch({
-        headless: true, // changed to headless: true
+        headless: true,
         args: proxyArgs,
       });
       const page = await browser.newPage();
