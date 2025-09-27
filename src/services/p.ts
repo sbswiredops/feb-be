@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, ElementHandle, Page } from 'puppeteer';
+import * as process from 'process';
 import { v4 as uuidv4 } from 'uuid';
 
 type SessionContext = {
@@ -16,7 +17,9 @@ type SessionContext = {
 @Injectable()
 export class PerplexityService {
   private readonly logger = new Logger(PerplexityService.name);
+
   private sessions = new Map<string, SessionContext>();
+
 
   async activateCouponOnPerplexity(
     code: string,
@@ -25,22 +28,21 @@ export class PerplexityService {
     try {
       puppeteer.use(StealthPlugin());
 
-      // === Direct Oxylabs Proxy Info ===
-      const proxyHost = 'pr.oxylabs.io:7777';
-      const proxyUser = 'customer-laiss_ZnsKx-cc-gb';
-      const proxyPass = 'HqZaZR8PwaKhxP_';
+      const proxyUrl = process.env.UK_PROXY_URL;
+      const proxyArgs = proxyUrl ? [`--proxy-server=${proxyUrl}`] : [];
 
       const browser = await puppeteer.launch({
         headless: false,
-        args: [`--proxy-server=${proxyHost}`],
+        args: proxyArgs,
       });
       const page = await browser.newPage();
 
-      // Authenticate every page with proxy credentials
-      await page.authenticate({
-        username: proxyUser,
-        password: proxyPass,
-      });
+      if (process.env.UK_PROXY_USER && process.env.UK_PROXY_PASS) {
+        await page.authenticate({
+          username: process.env.UK_PROXY_USER,
+          password: process.env.UK_PROXY_PASS,
+        });
+      }
 
       await page.setUserAgent(
         'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
@@ -53,7 +55,7 @@ export class PerplexityService {
       );
       await new Promise((res) => setTimeout(res, 5000 + Math.random() * 2000));
 
-      // Coupon code input
+      // 1. Set coupon code and trigger Continue
       const couponSelector = 'input[placeholder="Promo Code"]';
       await page.waitForSelector(couponSelector, { timeout: 10000, visible: true });
       const couponInput = await page.$(couponSelector);
@@ -71,7 +73,7 @@ export class PerplexityService {
           }
         }, couponSelector);
 
-        // Continue button after promo code
+        // Wait for the Continue button to be enabled
         const continueBtnSelector = 'button[type="submit"]';
         await page.waitForFunction(
           (selector) => {
@@ -81,6 +83,7 @@ export class PerplexityService {
           { timeout: 10000 },
           continueBtnSelector,
         );
+        // Click the Continue button after promo code
         const continueBtn = await page.$(continueBtnSelector);
         if (continueBtn) {
           await continueBtn.click({ delay: 50 });
@@ -88,7 +91,7 @@ export class PerplexityService {
         }
       }
 
-      // Email input and continue
+      // 2. Set email and trigger "Continue with email" button
       const emailSelector = 'input[placeholder="Enter your email"]';
       await page.waitForSelector(emailSelector, { timeout: 20000, visible: true });
       const emailInput = await page.$(emailSelector);
@@ -106,6 +109,7 @@ export class PerplexityService {
           }
         }, emailSelector);
 
+        // Wait for the "Continue with email" button to be enabled
         await page.waitForFunction(() => {
           const btns = Array.from(document.querySelectorAll('button'));
           return btns.some(
@@ -115,6 +119,7 @@ export class PerplexityService {
           );
         }, { timeout: 100000 });
 
+        // Click the "Continue with email" button
         const continueEmailBtn = await page.evaluateHandle(() => {
           const btns = Array.from(document.querySelectorAll('button'));
           return (
@@ -134,7 +139,7 @@ export class PerplexityService {
         }
       }
 
-      // OTP step detection
+      // OTP page-এ redirect হয়েছে কিনা চেক করুন
       const url = page.url();
       const content = await page.content();
       if (
@@ -165,6 +170,7 @@ export class PerplexityService {
     }
   }
 
+  // FE থেকে OTP এলে এই ফাংশন call করবে
   async submitOtp(sessionId: string, otp: string) {
     const session = this.sessions.get(sessionId);
     if (!session) {
