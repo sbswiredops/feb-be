@@ -6,6 +6,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, ElementHandle, Page } from 'puppeteer';
 import * as process from 'process';
 import { v4 as uuidv4 } from 'uuid';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 type SessionContext = {
   browser: Browser;
@@ -28,30 +29,67 @@ export class PerplexityService {
     try {
       puppeteer.use(StealthPlugin());
 
-      const proxyUrl = process.env.UK_PROXY_URL;
-      const proxyArgs = proxyUrl ? [`--proxy-server=${proxyUrl}`] : [];
+      // Get proxy configuration from environment variables
+      const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.UK_PROXY_URL;
+      const proxyUser = process.env.PROXY_USER || process.env.UK_PROXY_USER;
+      const proxyPass = process.env.PROXY_PASS || process.env.UK_PROXY_PASS;
 
-      const browser = await puppeteer.launch({
-        headless: false,
-        args: proxyArgs,
-      });
-      const page = await browser.newPage();
+      let launchArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+      ];
 
-      if (process.env.UK_PROXY_USER && process.env.UK_PROXY_PASS) {
-        await page.authenticate({
-          username: process.env.UK_PROXY_USER,
-          password: process.env.UK_PROXY_PASS,
-        });
+      // Add proxy configuration if available
+      if (proxyUrl) {
+        launchArgs.push(`--proxy-server=${proxyUrl}`);
+        this.logger.log(`Using proxy: ${proxyUrl}`);
       }
 
+      const browser = await puppeteer.launch({
+        headless: true, // Changed to true for better compatibility
+        args: launchArgs,
+        ignoreHTTPSErrors: true,
+        ignoreDefaultArgs: ['--disable-extensions'],
+      });
+      
+      const page = await browser.newPage();
+
+      // Set proxy authentication if credentials are provided
+      if (proxyUser && proxyPass) {
+        await page.authenticate({
+          username: proxyUser,
+          password: proxyPass,
+        });
+        this.logger.log('Proxy authentication configured');
+      }
+
+      // Set additional headers and user agent
       await page.setUserAgent(
         'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
       );
       await page.setViewport({ width: 400, height: 800, isMobile: true });
+      
+      // Set extra HTTP headers
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+      });
 
+      this.logger.log('Navigating to Perplexity...');
       await page.goto(
         `https://www.perplexity.ai/join/p/priority?discount_code`,
-        { waitUntil: 'networkidle2', timeout: 60000 },
+        { 
+          waitUntil: 'networkidle2', 
+          timeout: 90000 // Increased timeout for proxy connections
+        },
       );
       await new Promise((res) => setTimeout(res, 5000 + Math.random() * 2000));
 
