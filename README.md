@@ -15,10 +15,15 @@ A NestJS backend application for coupon redemption with Perplexity-based authent
 
 ## Environment Variables
 
-Create a `.env` file in the root directory with the following variables:
+Create a `.env` file in the root directory. For local development with Supabase, use:
 
 ```bash
-DATABASE_URL=postgresql://username:password@localhost:5432/coupon_db
+# Get these from your Supabase project dashboard
+DATABASE_URL=postgresql://postgres:password@db.supabase.co:5432/postgres
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
 PORT=3000
 PERPLEXITY_API_KEY=your_perplexity_api_key_here
 PERPLEXITY_API_BASE=https://api.perplexity.ai
@@ -29,14 +34,24 @@ JWT_SECRET=your_jwt_secret_here
 
 ## Database Setup
 
-1. Create a PostgreSQL database
-2. Run the initialization script:
+### Option 1: Using Supabase (Recommended for development)
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to Settings > Database and copy your connection string
+3. Update your `.env` file with the Supabase credentials
+4. The database tables will be created automatically using the migration files
+
+### Option 2: Local PostgreSQL
+
+1. Install and start PostgreSQL locally
+2. Create a database named `coupon_db`
+3. Run the initialization script:
 
 ```bash
 psql -d your_database_url -f database/init.sql
 ```
 
-Or use the provided SQL script to set up tables and sample data.
+**Note**: If you're getting `ECONNREFUSED` errors, it means PostgreSQL is not running locally. Use Supabase instead for easier setup.
 
 ## Installation
 
