@@ -41,7 +41,8 @@ export class PerplexityService {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--ignore-certificate-errors'
       ];
 
       // Add proxy configuration if available
@@ -53,7 +54,6 @@ export class PerplexityService {
       const browser = await puppeteer.launch({
         headless: true, // Changed to true for better compatibility
         args: launchArgs,
-        ignoreHTTPSErrors: true,
         ignoreDefaultArgs: ['--disable-extensions'],
       });
       
