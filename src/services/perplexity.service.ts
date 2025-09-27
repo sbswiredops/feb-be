@@ -244,16 +244,12 @@ export class PerplexityService {
 
       try {
         await Promise.race([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }),
-          new Promise((res) => setTimeout(res, 3000)),
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 7000 }),
+          new Promise((res) => setTimeout(res, 2000)),
         ]);
       } catch {
-        await new Promise((res) =>
-          setTimeout(res, 2000 + Math.random() * 1000),
-        );
+        await new Promise((res) => setTimeout(res, 1000));
       }
-
-      await new Promise((res) => setTimeout(res, 15000));
 
       const url = page.url();
       const content = await page.content();
