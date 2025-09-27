@@ -16,6 +16,7 @@ import { Log } from './entities/log.entity';
 import { getDatabaseConfig } from './config/database.config';
 import { PerplexityService } from './services/perplexity.service';
 import { RedeemService } from './services/redeem.service';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { RedeemService } from './services/redeem.service';
         signOptions: { expiresIn: '24h' },
       }),
     }),
+    HttpModule,
   ],
   controllers: [AppController, CouponController, AdminController],
   providers: [AppService, PerplexityService, LoggingService, JwtStrategy, RedeemService],
